@@ -16,6 +16,13 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 bool isDeviceActive = true;
 bool isNightMode = false;
+bool watering = false;
+
+int moisture = 54;
+int minMoisture = 20;
+int maxMoisture = 50;
+
+
 
 volatile unsigned long lastTouchTime = 0;
 volatile int clickCount = 0;
@@ -146,7 +153,7 @@ void toggle_device_mode()
 void check_night_mode() 
 {
   String currentTime = get_current_time();
-  if (currentTime >= "22:00:00" && currentTime <= "08:00:00") 
+  if (currentTime >= "22:00:00" || currentTime <= "08:00:00") 
   {
     isNightMode = true;
   } 
@@ -248,6 +255,21 @@ void update_display()
   drawMoon();
 
   displaySignalStrength();
+
+  // TODO - zobrazit vlhkost půdy
+  // TODO - zobrazit minimální a maximální vlhkost půdy
+
+  display.println("Time: " + get_current_time());
+  display.println("Min: " + String(minMoisture) + "%");
+  display.println("Max: " + String(maxMoisture) + "%");
+  
+  int xPos = SCREEN_WIDTH - (String(moisture).length() + 1) * 12;
+  int yPos = SCREEN_HEIGHT - 16;
+  display.setCursor(xPos, yPos);
+  display.setTextSize(2);
+  display.println("54%");
+  display.setTextSize(1);
+
   display.display();
 }
 
@@ -275,6 +297,11 @@ void loop()
     int moisture = read_soil_moisture();
 
     if (moisture < 300) 
+    {
+      watering = true;
+    }
+
+    if (watering) 
     {
       // activate_pump();
     }
