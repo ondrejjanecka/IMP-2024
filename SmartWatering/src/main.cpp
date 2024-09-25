@@ -17,12 +17,12 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 bool isDeviceActive = true;
 bool isNightMode = false;
 bool watering = false;
+bool settingMin = false;
+bool settingMax = false;
 
 int moisture = 54;
 int minMoisture = 20;
 int maxMoisture = 50;
-
-
 
 volatile unsigned long lastTouchTime = 0;
 volatile int clickCount = 0;
@@ -273,6 +273,95 @@ void update_display()
   display.display();
 }
 
+void setMinimumMoisture() 
+{
+  while (settingMin) 
+  {
+    display.clearDisplay();
+
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("Set Min Moisture");
+
+    display.setTextSize(2);
+    display.setCursor(0, 20);
+    display.print("Min: ");
+    display.print(minMoisture);
+    display.print("%");
+
+    // Vykreslení posuvníku
+    display.setTextSize(1);
+    display.setCursor(0, 50);
+    int sliderPosition = map(minMoisture, 0, 100, 0, SCREEN_WIDTH);
+
+    display.drawRect(0, 50, SCREEN_WIDTH, 5, SSD1306_WHITE);
+    display.fillRect(0, 50, sliderPosition, 5, SSD1306_WHITE);
+
+    // Indikator aktualni hodnoty
+    int indicatorWidth = 6;
+    int indicatorHeight = 13;
+    int indicatorX = sliderPosition - (indicatorWidth / 2);
+    display.fillRect(indicatorX, 46, indicatorWidth, indicatorHeight, SSD1306_WHITE);
+
+
+    display.display();
+
+    // TMP - simulace nastaveni hodnoty
+      minMoisture += 1;
+      if (minMoisture > 100) 
+      {
+          minMoisture = 0;
+      }
+    // TMP END
+    
+    delay(200);
+  }
+}
+
+void setMaximumMoisture() 
+{
+  while (settingMax) 
+  {
+    display.clearDisplay();
+
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("Set Max Moisture");
+
+    display.setTextSize(2);
+    display.setCursor(0, 20);
+    display.print("Max: ");
+    display.print(maxMoisture);
+    display.print("%");
+
+    // Vykreslení posuvníku
+    display.setTextSize(1);
+    display.setCursor(0, 50);
+    int sliderPosition = map(maxMoisture, 0, 100, 0, SCREEN_WIDTH);
+
+    display.drawRect(0, 50, SCREEN_WIDTH, 5, SSD1306_WHITE);
+    display.fillRect(0, 50, sliderPosition, 5, SSD1306_WHITE);
+
+    // Indikator aktualni hodnoty
+    int indicatorWidth = 6;
+    int indicatorHeight = 13;
+    int indicatorX = sliderPosition - (indicatorWidth / 2);
+    display.fillRect(indicatorX, 46, indicatorWidth, indicatorHeight, SSD1306_WHITE);
+
+    display.display();
+
+    // TMP - simulace nastaveni hodnoty
+      maxMoisture += 1;
+      if (maxMoisture > 100) 
+      {
+          maxMoisture = 0;
+      }
+    // TMP END
+
+    delay(200);
+  }
+}
+
 // Funkce pro zpracování dvojitého kliknutí
 void process_touch_clicks() 
 {
@@ -291,6 +380,11 @@ void setup()
 void loop() 
 {
   process_touch_clicks();
+
+  if (settingMin) 
+    setMinimumMoisture();
+  if (settingMax) 
+    setMaximumMoisture();
 
   if (isDeviceActive) 
   {
