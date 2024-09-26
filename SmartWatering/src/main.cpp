@@ -3,6 +3,7 @@
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <time.h>
+#include <Preferences.h>
 #include "secrets.h"
 
 #define SCREEN_WIDTH 128
@@ -12,17 +13,19 @@
 
 #define TOUCH_PIN 13 // Pin pro dotykový senzor
 
+Preferences preferences;
+
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-bool isDeviceActive = true;
-bool isNightMode = false;
+bool deviceActive = true;
+bool nightMode = false;
 bool watering = false;
 bool settingMin = false;
 bool settingMax = false;
 
-int moisture = 54;
-int minMoisture = 20;
-int maxMoisture = 50;
+int moisture = 40;
+int minMoisture;
+int maxMoisture;
 
 volatile unsigned long lastTouchTime = 0;
 volatile int clickCount = 0;
@@ -31,16 +34,30 @@ const unsigned long doubleClickThreshold = 500; // Časový limit pro dvojité k
 // Funkce pro obsluhu přerušení dotykového senzoru
 void IRAM_ATTR touchInterrupt() 
 {
-  unsigned long currentTime = millis();
-  if (currentTime - lastTouchTime < doubleClickThreshold) 
+  if (settingMin)
   {
-    clickCount++;
-  } 
-  else 
-  {
-    clickCount = 1;
+    settingMin = false;
+    settingMax = true;
   }
-  lastTouchTime = currentTime;
+  else if (settingMax)
+  {
+    settingMax = false;
+  }
+  else
+  {
+    settingMin = true;
+  }
+
+  // unsigned long currentTime = millis();
+  // if (currentTime - lastTouchTime < doubleClickThreshold) 
+  // {
+  //   clickCount++;
+  // } 
+  // else 
+  // {
+  //   clickCount = 1;
+  // }
+  // lastTouchTime = currentTime;
 }
 
 void initialize_system() 
@@ -51,6 +68,13 @@ void initialize_system()
     while (true)
       ; // Zastaví program
   }
+
+  // Otevření preferences
+  preferences.begin("moistureSett", false);
+
+  minMoisture = preferences.getInt("minMoisture", 20);
+  maxMoisture = preferences.getInt("maxMoisture", 60);
+  deviceActive = preferences.getBool("deviceActive", false);
 
   // Připojení k Wi-Fi
   WiFi.begin(ssid, password);
@@ -103,36 +127,75 @@ void enter_sleep_mode()
 }
 
 // Funkce pro čtení hodnoty vlhkosti půdy
-int read_soil_moisture() 
+void updateMoisture() 
 {
-  int moisture = analogRead(SOIL_SENSOR_PIN);
-  return moisture;  // Zde je nutné případně kalibrovat
+  // moisture = analogRead(SOIL_SENSOR_PIN);
 }
 
-// Funkce pro aktivaci čerpadla
-void activate_pump() 
+unsigned long lastWateringTime = 0;
+unsigned long lastPumpRunTime = 0;
+bool pumpRunning = false;
+
+void watering_cycle()
 {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Pump activated!");
-  display.display();
-  digitalWrite(PUMP_PIN, HIGH);
-  delay(5000);  // Čerpadlo běží 5 sekund
-  digitalWrite(PUMP_PIN, LOW);
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Pump deactivated.");
-  display.display();
+    unsigned long currentMillis = millis();
+
+    // Pokud je watering true, spustí se logika zavlažování
+    if (watering) 
+    {
+        // Zkontrolujeme, zda má čerpadlo běžet (běží na 20 sekund)
+        if (!pumpRunning && currentMillis - lastWateringTime >= 6000)  // 10 minut čekání
+        {
+            pumpRunning = true;
+            lastPumpRunTime = currentMillis;
+            // Spusteni cerpadla
+            display.clearDisplay();
+            display.setCursor(0, 0);
+            display.print("Pump running...");
+            display.display();
+            delay(1000);
+        }
+
+        // Pokud čerpadlo běželo 20 sekund, vypneme ho
+        if (pumpRunning && currentMillis - lastPumpRunTime >= 2000)  // 20 sekund běhu čerpadla
+        {
+            pumpRunning = false;
+            // Zastaveni cerpadla
+            lastWateringTime = currentMillis;  // Resetujeme čas čekání
+            display.clearDisplay();
+            display.setCursor(0, 0);
+            display.print("Waiting 10 minutes...");
+            display.display();
+            delay(1000);
+
+            // TMP - simulace zvýšení vlhkosti
+              moisture += 2;
+            // TMP END
+        }
+
+        // Zkontrolujeme vlhkost během čekání a vypneme zavlažování, pokud je vlhkost dostatečná
+        if (moisture >= (maxMoisture - 5))  // Pokud je vlhkost blízko maximální hodnotě
+        {
+            watering = false;
+            pumpRunning = false;
+            digitalWrite(PUMP_PIN, LOW);  // Ujistíme se, že čerpadlo je vypnuté
+            display.clearDisplay();
+            display.setCursor(0, 0);
+            display.print("Watering complete.");
+            display.display();
+            delay(1000);
+        }
+    }
 }
 
 // Funkce pro přepnutí režimu zařízení
 void toggle_device_mode() 
 {
-    isDeviceActive = !isDeviceActive;
+    deviceActive = !deviceActive;
     display.clearDisplay();
     display.setTextSize(2);
 
-    String message = isDeviceActive ? "ACTIVE" : "INACTIVE";
+    String message = deviceActive ? "ACTIVE" : "INACTIVE";
     
     uint16_t textWidth = message.length() * 12; // Přibližná šířka písma 6x2
     uint16_t textHeight = 16; // Výška písma při velikosti 2
@@ -146,6 +209,8 @@ void toggle_device_mode()
     display.display();
     display.setTextSize(1);
 
+    preferences.putBool("deviceActive", deviceActive);
+
     delay(2000);
 }
 
@@ -155,18 +220,18 @@ void check_night_mode()
   String currentTime = get_current_time();
   if (currentTime >= "22:00:00" || currentTime <= "08:00:00") 
   {
-    isNightMode = true;
+    nightMode = true;
   } 
   else 
   {
-    isNightMode = false;
+    nightMode = false;
   }
 }
 
 // Vykreslení měsíce (indikátor nočního režimu)
 void drawMoon() 
 {
-  if (isNightMode == true) 
+  if (nightMode == true) 
   {
     display.fillCircle(100, 7, 7, WHITE);
     display.fillCircle(94, 7, 7, BLACK);
@@ -178,7 +243,7 @@ void drawMoon()
 // Vykreslení zákazové značky (indikátor stavu zařízení)
 void drawSign() 
 {
-  if (isDeviceActive == false) 
+  if (deviceActive == false) 
   {
     display.fillCircle(120, 7, 7, WHITE);
     display.fillCircle(120, 7, 5, BLACK);
@@ -267,7 +332,7 @@ void update_display()
   int yPos = SCREEN_HEIGHT - 16;
   display.setCursor(xPos, yPos);
   display.setTextSize(2);
-  display.println("54%");
+  display.print(String(moisture) + "%");
   display.setTextSize(1);
 
   display.display();
@@ -314,6 +379,8 @@ void setMinimumMoisture()
       }
     // TMP END
     
+    preferences.putInt("minMoisture", minMoisture);
+
     delay(200);
   }
 }
@@ -358,6 +425,8 @@ void setMaximumMoisture()
       }
     // TMP END
 
+    preferences.putInt("maxMoisture", maxMoisture);
+
     delay(200);
   }
 }
@@ -386,18 +455,16 @@ void loop()
   if (settingMax) 
     setMaximumMoisture();
 
-  if (isDeviceActive) 
+  if (deviceActive) 
   {
-    int moisture = read_soil_moisture();
-
-    if (moisture < 300) 
+    if (moisture < minMoisture) 
     {
       watering = true;
     }
 
     if (watering) 
     {
-      // activate_pump();
+      watering_cycle();
     }
 
     check_night_mode();
