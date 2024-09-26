@@ -22,6 +22,7 @@ bool nightMode = false;
 bool watering = false;
 bool settingMin = false;
 bool settingMax = false;
+bool timedWakeup = false;
 
 int moisture = 40;
 int minMoisture;
@@ -76,6 +77,17 @@ void initializeSystem()
   maxMoisture = preferences.getInt("maxMoisture", 60);
   deviceActive = preferences.getBool("deviceActive", false);
 
+// CHECK
+  if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) 
+  {
+    timedWakeup = true;
+  }
+  else
+  {
+    timedWakeup = false;
+  }
+// CHECK
+
   // Připojení k Wi-Fi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) 
@@ -97,9 +109,6 @@ void initializeSystem()
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.print("System Initialized");
-  display.display();
-  delay(2000);
 }
 
 String getCurrentTime() 
@@ -118,11 +127,14 @@ String getCurrentTime()
 void enterSleepMode() 
 {
   display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("Entering sleep mode...");
   display.display();
-  delay(5000);
-  esp_sleep_enable_timer_wakeup(10 * 60 * 1000000);  // Uspat na 10 minut
+
+  if (deviceActive || nightMode) 
+    esp_sleep_enable_timer_wakeup(60UL * 60 * 1000000);  // Uspat na 60 minut
+  else
+    esp_sleep_enable_timer_wakeup(10 * 60 * 1000000);  // Uspat na 10 minut
+
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_13,1);
   esp_deep_sleep_start();
 }
 
@@ -472,8 +484,12 @@ void loop()
   }
   else 
   {
-    updateDisplay();
+    if (!timedWakeup)
+      updateDisplay();
   }
 
   delay(1000);
+
+  if (watering == false && (millis() - lastTouchTime) > 60000)
+    enterSleepMode();
 }
