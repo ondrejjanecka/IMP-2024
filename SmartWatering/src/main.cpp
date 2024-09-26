@@ -60,7 +60,7 @@ void IRAM_ATTR touchInterrupt()
   // lastTouchTime = currentTime;
 }
 
-void initialize_system() 
+void initializeSystem() 
 {
   // Inicializace displeje
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) 
@@ -102,7 +102,7 @@ void initialize_system()
   delay(2000);
 }
 
-String get_current_time() 
+String getCurrentTime() 
 {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) 
@@ -115,7 +115,7 @@ String get_current_time()
 }
 
 // Funkce pro vstup do režimu spánku
-void enter_sleep_mode() 
+void enterSleepMode() 
 {
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -138,86 +138,86 @@ bool pumpRunning = false;
 
 void watering_cycle()
 {
-    unsigned long currentMillis = millis();
+  unsigned long currentMillis = millis();
 
-    // Pokud je watering true, spustí se logika zavlažování
-    if (watering) 
+  // Pokud je watering true, spustí se logika zavlažování
+  if (watering) 
+  {
+    // Zkontrolujeme, zda má čerpadlo běžet (běží na 20 sekund)
+    if (!pumpRunning && currentMillis - lastWateringTime >= 6000)  // 10 minut čekání
     {
-        // Zkontrolujeme, zda má čerpadlo běžet (běží na 20 sekund)
-        if (!pumpRunning && currentMillis - lastWateringTime >= 6000)  // 10 minut čekání
-        {
-            pumpRunning = true;
-            lastPumpRunTime = currentMillis;
-            // Spusteni cerpadla
-            display.clearDisplay();
-            display.setCursor(0, 0);
-            display.print("Pump running...");
-            display.display();
-            delay(1000);
-        }
-
-        // Pokud čerpadlo běželo 20 sekund, vypneme ho
-        if (pumpRunning && currentMillis - lastPumpRunTime >= 2000)  // 20 sekund běhu čerpadla
-        {
-            pumpRunning = false;
-            // Zastaveni cerpadla
-            lastWateringTime = currentMillis;  // Resetujeme čas čekání
-            display.clearDisplay();
-            display.setCursor(0, 0);
-            display.print("Waiting 10 minutes...");
-            display.display();
-            delay(1000);
-
-            // TMP - simulace zvýšení vlhkosti
-              moisture += 2;
-            // TMP END
-        }
-
-        // Zkontrolujeme vlhkost během čekání a vypneme zavlažování, pokud je vlhkost dostatečná
-        if (moisture >= (maxMoisture - 5))  // Pokud je vlhkost blízko maximální hodnotě
-        {
-            watering = false;
-            pumpRunning = false;
-            digitalWrite(PUMP_PIN, LOW);  // Ujistíme se, že čerpadlo je vypnuté
-            display.clearDisplay();
-            display.setCursor(0, 0);
-            display.print("Watering complete.");
-            display.display();
-            delay(1000);
-        }
+      pumpRunning = true;
+      lastPumpRunTime = currentMillis;
+      // Spusteni cerpadla
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.print("Pump running...");
+      display.display();
+      delay(1000);
     }
+
+    // Pokud čerpadlo běželo 20 sekund, vypneme ho
+    if (pumpRunning && currentMillis - lastPumpRunTime >= 2000)  // 20 sekund běhu čerpadla
+    {
+      pumpRunning = false;
+      // Zastaveni cerpadla
+      lastWateringTime = currentMillis;  // Resetujeme čas čekání
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.print("Waiting 10 minutes...");
+      display.display();
+      delay(1000);
+
+      // TMP - simulace zvýšení vlhkosti
+        moisture += 2;
+      // TMP END
+    }
+
+    // Zkontrolujeme vlhkost během čekání a vypneme zavlažování, pokud je vlhkost dostatečná
+    if (moisture >= (maxMoisture - 5))  // Pokud je vlhkost blízko maximální hodnotě
+    {
+      watering = false;
+      pumpRunning = false;
+      digitalWrite(PUMP_PIN, LOW);  // Ujistíme se, že čerpadlo je vypnuté
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.print("Watering complete.");
+      display.display();
+      delay(1000);
+    }
+  }
 }
 
 // Funkce pro přepnutí režimu zařízení
-void toggle_device_mode() 
+void toggleDeviceMode() 
 {
-    deviceActive = !deviceActive;
-    display.clearDisplay();
-    display.setTextSize(2);
+  deviceActive = !deviceActive;
+  display.clearDisplay();
+  display.setTextSize(2);
 
-    String message = deviceActive ? "ACTIVE" : "INACTIVE";
-    
-    uint16_t textWidth = message.length() * 12; // Přibližná šířka písma 6x2
-    uint16_t textHeight = 16; // Výška písma při velikosti 2
+  String message = deviceActive ? "ACTIVE" : "INACTIVE";
+  
+  uint16_t textWidth = message.length() * 12; // Přibližná šířka písma 6x2
+  uint16_t textHeight = 16; // Výška písma při velikosti 2
 
-    // Výpočet pozice pro vycentrování textu
-    int16_t x = (SCREEN_WIDTH - textWidth) / 2;
-    int16_t y = (SCREEN_HEIGHT - textHeight) / 2;
+  // Výpočet pozice pro vycentrování textu
+  int16_t x = (SCREEN_WIDTH - textWidth) / 2;
+  int16_t y = (SCREEN_HEIGHT - textHeight) / 2;
 
-    display.setCursor(x, y);
-    display.print(message);
-    display.display();
-    display.setTextSize(1);
+  display.setCursor(x, y);
+  display.print(message);
+  display.display();
+  display.setTextSize(1);
 
-    preferences.putBool("deviceActive", deviceActive);
+  preferences.putBool("deviceActive", deviceActive);
 
-    delay(2000);
+  delay(2000);
 }
 
 // Funkce pro kontrolu nočního režimu
-void check_night_mode() 
+void checkNightMode() 
 {
-  String currentTime = get_current_time();
+  String currentTime = getCurrentTime();
   if (currentTime >= "22:00:00" || currentTime <= "08:00:00") 
   {
     nightMode = true;
@@ -308,7 +308,7 @@ void displaySignalStrength()
 }
 
 // Aktualizace displeje
-void update_display() 
+void updateDisplay() 
 {
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -324,7 +324,7 @@ void update_display()
   // TODO - zobrazit vlhkost půdy
   // TODO - zobrazit minimální a maximální vlhkost půdy
 
-  display.println("Time: " + get_current_time());
+  display.println("Time: " + getCurrentTime());
   display.println("Min: " + String(minMoisture) + "%");
   display.println("Max: " + String(maxMoisture) + "%");
   
@@ -432,23 +432,23 @@ void setMaximumMoisture()
 }
 
 // Funkce pro zpracování dvojitého kliknutí
-void process_touch_clicks() 
+void processTouchClicks() 
 {
   if (clickCount == 2) 
   {
-    toggle_device_mode();
+    toggleDeviceMode();
     clickCount = 0;
   }
 }
 
 void setup() 
 {
-  initialize_system();
+  initializeSystem();
 }
 
 void loop() 
 {
-  process_touch_clicks();
+  processTouchClicks();
 
   if (settingMin) 
     setMinimumMoisture();
@@ -467,12 +467,12 @@ void loop()
       watering_cycle();
     }
 
-    check_night_mode();
-    update_display();
+    checkNightMode();
+    updateDisplay();
   }
   else 
   {
-    update_display();
+    updateDisplay();
   }
 
   delay(1000);
