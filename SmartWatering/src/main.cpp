@@ -8,10 +8,11 @@
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
-#define SOIL_SENSOR_PIN A0
-#define PUMP_PIN 5
+#define PUMP_PIN 15
+#define PUMP_PIN2 16
 
 #define TOUCH_PIN 13 // Pin pro dotykový senzor
+#define SOIL_SENSOR_PIN 33
 
 Preferences preferences;
 
@@ -24,16 +25,26 @@ bool settingMin = false;
 bool settingMax = false;
 bool timedWakeup = false;
 
-int moisture = 40;
+int moisture;
 int minMoisture;
 int maxMoisture;
+
+#define CLK 26
+#define DT 27
+#define SW 14
+
+int counter = 0;                    // Counter for encoder position
+int currentStateCLK;                // Current state of CLK
+int lastStateCLK;                   // Last state of CLK
+String currentDir = "";             // Current direction of rotation
+unsigned long lastButtonPress = 0;  // Time of last button press
 
 volatile unsigned long lastTouchTime = 0;
 volatile int clickCount = 0;
 const unsigned long doubleClickThreshold = 500; // Časový limit pro dvojité kliknutí
 
 // Funkce pro obsluhu přerušení dotykového senzoru
-void IRAM_ATTR touchInterrupt() 
+void IRAM_ATTR setting() 
 {
   if (settingMin)
   {
@@ -49,16 +60,33 @@ void IRAM_ATTR touchInterrupt()
     settingMin = true;
   }
 
-  // unsigned long currentTime = millis();
-  // if (currentTime - lastTouchTime < doubleClickThreshold) 
+}
+void IRAM_ATTR touchInterrupt() 
+{
+  // if (settingMin)
   // {
-  //   clickCount++;
-  // } 
-  // else 
-  // {
-  //   clickCount = 1;
+  //   settingMin = false;
+  //   settingMax = true;
   // }
-  // lastTouchTime = currentTime;
+  // else if (settingMax)
+  // {
+  //   settingMax = false;
+  // }
+  // else
+  // {
+  //   settingMin = true;
+  // }
+
+  unsigned long currentTime = millis();
+  if (currentTime - lastTouchTime < doubleClickThreshold) 
+  {
+    clickCount++;
+  } 
+  else 
+  {
+    clickCount = 1;
+  }
+  lastTouchTime = currentTime;
 }
 
 void initializeSystem() 
@@ -101,9 +129,18 @@ void initializeSystem()
   // Inicializace pinů
   pinMode(SOIL_SENSOR_PIN, INPUT);
   pinMode(PUMP_PIN, OUTPUT);
+  pinMode(PUMP_PIN2, OUTPUT);
   pinMode(TOUCH_PIN, INPUT);
 
+  pinMode(CLK, INPUT);
+  pinMode(DT, INPUT);
+  pinMode(SW, INPUT_PULLUP);
+
+  lastStateCLK = digitalRead(CLK);
+
+
   attachInterrupt(digitalPinToInterrupt(TOUCH_PIN), touchInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(SW), setting, RISING);
 
   display.clearDisplay();
   display.setTextSize(1);
@@ -138,10 +175,31 @@ void enterSleepMode()
   esp_deep_sleep_start();
 }
 
+// // Funkce pro čtení hodnoty vlhkosti půdy
+// void updateMoisture() 
+// {
+//   int sensorValue = analogRead(SOIL_SENSOR_PIN);
+//   moisture = map(sensorValue, 2647, 976, 0, 100); 
+// }
+
+// Definice proměnných pro vlhkost
+const float alpha = 0.01; // Koeficient pro EMA (0 < alpha < 1)
+float previousEMA = 0;    // Předchozí hodnota EMA
+// float moisture = 0;       // Aktuální hodnota vlhkosti
+
 // Funkce pro čtení hodnoty vlhkosti půdy
 void updateMoisture() 
 {
-  // moisture = analogRead(SOIL_SENSOR_PIN);
+  int sensorValue = analogRead(SOIL_SENSOR_PIN);
+  
+  // Převedení analogové hodnoty na procenta
+  float moistureRaw = map(sensorValue, 2647, 976, 0, 100); 
+
+  // Výpočet exponenciálního klouzavého průměru
+  previousEMA = alpha * moistureRaw + (1 - alpha) * previousEMA;
+  
+  // Uložení aktuální EMA jako celé číslo
+  moisture = static_cast<int>(round(previousEMA));
 }
 
 unsigned long lastWateringTime = 0;
@@ -160,7 +218,8 @@ void watering_cycle()
     {
       pumpRunning = true;
       lastPumpRunTime = currentMillis;
-      // Spusteni cerpadla
+      digitalWrite(PUMP_PIN, HIGH);
+      digitalWrite(PUMP_PIN2, LOW);
       display.clearDisplay();
       display.setCursor(0, 0);
       display.print("Pump running...");
@@ -172,17 +231,14 @@ void watering_cycle()
     if (pumpRunning && currentMillis - lastPumpRunTime >= 2000)  // 20 sekund běhu čerpadla
     {
       pumpRunning = false;
-      // Zastaveni cerpadla
+      digitalWrite(PUMP_PIN, LOW);
+      digitalWrite(PUMP_PIN2, LOW);
       lastWateringTime = currentMillis;  // Resetujeme čas čekání
       display.clearDisplay();
       display.setCursor(0, 0);
       display.print("Waiting 10 minutes...");
       display.display();
       delay(1000);
-
-      // TMP - simulace zvýšení vlhkosti
-        moisture += 2;
-      // TMP END
     }
 
     // Zkontrolujeme vlhkost během čekání a vypneme zavlažování, pokud je vlhkost dostatečná
@@ -190,7 +246,6 @@ void watering_cycle()
     {
       watering = false;
       pumpRunning = false;
-      digitalWrite(PUMP_PIN, LOW);  // Ujistíme se, že čerpadlo je vypnuté
       display.clearDisplay();
       display.setCursor(0, 0);
       display.print("Watering complete.");
@@ -222,6 +277,11 @@ void toggleDeviceMode()
   display.setTextSize(1);
 
   preferences.putBool("deviceActive", deviceActive);
+
+  pumpRunning = false;
+  watering = false;
+  digitalWrite(PUMP_PIN, LOW);
+  digitalWrite(PUMP_PIN2, LOW);
 
   delay(2000);
 }
@@ -333,9 +393,6 @@ void updateDisplay()
 
   displaySignalStrength();
 
-  // TODO - zobrazit vlhkost půdy
-  // TODO - zobrazit minimální a maximální vlhkost půdy
-
   display.println("Time: " + getCurrentTime());
   display.println("Min: " + String(minMoisture) + "%");
   display.println("Max: " + String(maxMoisture) + "%");
@@ -399,8 +456,8 @@ void setMinimumMoisture()
 
 void setMaximumMoisture() 
 {
-  while (settingMax) 
-  {
+  // while (settingMax) 
+  // {
     display.clearDisplay();
 
     display.setTextSize(1);
@@ -429,18 +486,14 @@ void setMaximumMoisture()
 
     display.display();
 
-    // TMP - simulace nastaveni hodnoty
-      maxMoisture += 1;
-      if (maxMoisture > 100) 
-      {
-          maxMoisture = 0;
-      }
-    // TMP END
+
+    // Read the current state of CLK
+
 
     preferences.putInt("maxMoisture", maxMoisture);
 
-    delay(200);
-  }
+    // delay(100);
+    // }
 }
 
 // Funkce pro zpracování dvojitého kliknutí
@@ -460,12 +513,45 @@ void setup()
 
 void loop() 
 {
+  updateMoisture();
+
   processTouchClicks();
 
   if (settingMin) 
     setMinimumMoisture();
+  
   if (settingMax) 
-    setMaximumMoisture();
+  {
+    // Read the current state of CLK
+    currentStateCLK = digitalRead(CLK);
+    
+    // If the last and current state of CLK are different, then a pulse occurred
+    if (currentStateCLK != lastStateCLK) 
+    {
+      // Check the state of DT to determine the rotation direction
+      if (digitalRead(DT) != currentStateCLK) 
+      {
+        maxMoisture--;
+      } 
+      else 
+      {
+        maxMoisture++;
+      }
+
+      // Ensure the moisture value stays between 0 and 100
+      if (maxMoisture < 0) maxMoisture = 0;
+      if (maxMoisture > 100) maxMoisture = 100;
+
+      preferences.putInt("maxMoisture", maxMoisture);  // Save the new value
+          lastStateCLK = currentStateCLK;
+
+    }
+
+    // Remember last CLK state
+
+    delay(30);  // Short delay to debounce
+    setMaximumMoisture();  // Update display
+  }
 
   if (deviceActive) 
   {
@@ -482,14 +568,13 @@ void loop()
     checkNightMode();
     updateDisplay();
   }
-  else 
+  else if (!settingMin && !settingMax)
   {
     if (!timedWakeup)
       updateDisplay();
   }
 
-  delay(1000);
-
-  if (watering == false && (millis() - lastTouchTime) > 60000)
-    enterSleepMode();
+  delay(10);
+  // if (watering == false && (millis() - lastTouchTime) > 60000)
+  //   enterSleepMode();
 }
