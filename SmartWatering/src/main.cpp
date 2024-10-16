@@ -5,6 +5,7 @@
 #include <time.h>
 #include <Preferences.h>
 #include "secrets.h"
+#include <PubSubClient.h>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -42,6 +43,60 @@ unsigned long lastButtonPress = 0;  // Time of last button press
 volatile unsigned long lastTouchTime = 0;
 volatile int clickCount = 0;
 const unsigned long doubleClickThreshold = 500; // Časový limit pro dvojité kliknutí
+
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// konfigurace MQTT serveru
+const char *mqtt_server = "ha-home-prerov.duckdns.org";
+const char *mqtt_client_id = "esp32_soil_moisture";
+const char *mqtt_topic_moisture = "soil_moisture/reading";
+const char *mqtt_topic_min_moisture = "soil_moisture/min";
+const char *mqtt_topic_max_moisture = "soil_moisture/max";
+
+void reconnect() {
+  // Vynuceni pripojeni k MQTT brokeru
+  while (!client.connected()) {
+    Serial.print("Connecting to MQTT...");
+    // Připojení k brokeru
+    if (client.connect(mqtt_client_id, mqttAccount, mqttPassword)) {
+      Serial.println("connected");
+      // Odběr pro nastavení minimální a maximální vlhkosti
+      client.subscribe(mqtt_topic_min_moisture);
+      client.subscribe(mqtt_topic_max_moisture);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  String message;
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+
+  // Přijetí minimální vlhkosti
+  if (String(topic) == mqtt_topic_min_moisture) {
+    minMoisture = message.toInt();
+    preferences.putInt("minMoisture", minMoisture);
+    Serial.print("Min moisture set to: ");
+    Serial.println(minMoisture);
+  }
+  
+  // Přijetí maximální vlhkosti
+  if (String(topic) == mqtt_topic_max_moisture) {
+    maxMoisture = message.toInt();
+    preferences.putInt("maxMoisture", maxMoisture);
+    Serial.print("Max moisture set to: ");
+    Serial.println(maxMoisture);
+  }
+}
+
 
 // Funkce pro obsluhu přerušení dotykového senzoru
 void IRAM_ATTR setting() 
@@ -89,6 +144,18 @@ void IRAM_ATTR touchInterrupt()
   lastTouchTime = currentTime;
 }
 
+void sendMoisture() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop(); // Zpracování zpráv
+
+  // Publikování vlhkosti
+  String moistureStr = String(moisture);
+  client.publish(mqtt_topic_moisture, moistureStr.c_str());
+}
+
+
 void initializeSystem() 
 {
   // Inicializace displeje
@@ -97,6 +164,9 @@ void initializeSystem()
     while (true)
       ; // Zastaví program
   }
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 
   // Otevření preferences
   preferences.begin("moistureSett", false);
@@ -513,8 +583,14 @@ void setup()
 
 void loop() 
 {
-  updateMoisture();
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();  // Zpracování zpráv
 
+  updateMoisture();
+  sendMoisture();  
+  
   processTouchClicks();
 
   if (settingMin) 
