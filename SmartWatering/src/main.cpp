@@ -40,13 +40,13 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // Konfigurace MQTT serveru
-const char *mqtt_client_id = "esp32_soil_moisture";
+const char *mqtt_client_id = "esp32_smartWatering";
 
-const char *mqtt_topic_moisture = "soil_moisture/reading";
-const char *mqtt_topic_min_moisture = "soil_moisture/min";
-const char *mqtt_topic_max_moisture = "soil_moisture/max";
-const char *mqtt_topic_night_mode = "soil_moisture/night_mode";
-const char *mqtt_topic_device_active = "soil_moisture/device_active";
+const char *mqtt_topic_moisture = "smartWatering/moisture";
+const char *mqtt_topic_min_moisture = "smartWatering/min";
+const char *mqtt_topic_max_moisture = "smartWatering/max";
+const char *mqtt_topic_night_mode = "smartWatering/night_mode";
+const char *mqtt_topic_device_active = "smartWatering/device_active";
 
 void reconnect() 
 {
@@ -229,6 +229,11 @@ void initializeSystem()
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
+
+  sendMinMoisture();
+  sendMaxMoisture();
+  sendDeviceActive();
+  sendNightMode();
 }
 
 String getCurrentTime() 
