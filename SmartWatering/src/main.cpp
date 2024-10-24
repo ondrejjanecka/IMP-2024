@@ -5,13 +5,14 @@
 #include <time.h>
 #include <Preferences.h>
 #include "secrets.h"
+#include <PubSubClient.h>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define PUMP_PIN 15
 #define PUMP_PIN2 16
 
-#define TOUCH_PIN 13 // Pin pro dotykový senzor
+#define TOUCH_PIN 13
 #define SOIL_SENSOR_PIN 33
 
 Preferences preferences;
@@ -29,54 +30,87 @@ int moisture;
 int minMoisture;
 int maxMoisture;
 
-#define CLK 26
-#define DT 27
-#define SW 14
-
-int counter = 0;                    // Counter for encoder position
-int currentStateCLK;                // Current state of CLK
-int lastStateCLK;                   // Last state of CLK
-String currentDir = "";             // Current direction of rotation
-unsigned long lastButtonPress = 0;  // Time of last button press
-
+unsigned long lastButtonPress = 0;
 volatile unsigned long lastTouchTime = 0;
 volatile int clickCount = 0;
-const unsigned long doubleClickThreshold = 500; // Časový limit pro dvojité kliknutí
+const unsigned long doubleClickThreshold = 400; // Casovy limit pro dvojite kliknuti
 
-// Funkce pro obsluhu přerušení dotykového senzoru
-void IRAM_ATTR setting() 
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// Konfigurace MQTT serveru
+const char *mqtt_client_id = "esp32_smartWatering";
+
+const char *mqtt_topic_moisture = "smartWatering/moisture";
+const char *mqtt_topic_min_moisture = "smartWatering/min";
+const char *mqtt_topic_max_moisture = "smartWatering/max";
+const char *mqtt_topic_night_mode = "smartWatering/night_mode";
+const char *mqtt_topic_device_active = "smartWatering/device_active";
+
+void reconnect() 
 {
-  if (settingMin)
-  {
-    settingMin = false;
-    settingMax = true;
+  // 5 pokusu o připojeni
+  for (int i = 0; i < 5; i++) {
+    Serial.print("Connecting to MQTT...");
+    // Pripojeni k brokeru
+    if (client.connect(mqtt_client_id, mqttAccount, mqttPassword)) {
+      Serial.println("connected");
+      
+      // Prihlaseni k odberu zprav
+      client.subscribe(mqtt_topic_min_moisture);
+      client.subscribe(mqtt_topic_max_moisture);
+      client.subscribe(mqtt_topic_night_mode);
+      client.subscribe(mqtt_topic_device_active);
+    } 
+    else 
+    {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(2000);
+    }
   }
-  else if (settingMax)
-  {
-    settingMax = false;
-  }
-  else
-  {
-    settingMin = true;
+}
+
+void callback(char* topic, byte* payload, unsigned int length) 
+{
+  String message;
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
   }
 
+  // Prijeti minimalni vlhkosti
+  if (String(topic) == mqtt_topic_min_moisture) 
+  {
+    minMoisture = message.toInt();
+    preferences.putInt("minMoisture", minMoisture);
+  }
+  
+  // Prijeti maximalni vlhkosti
+  if (String(topic) == mqtt_topic_max_moisture) 
+  {
+    maxMoisture = message.toInt();
+    preferences.putInt("maxMoisture", maxMoisture);
+  }
+
+  // Prijeti stavu zarizeni
+  if (String(topic) == mqtt_topic_device_active) 
+  {
+    deviceActive = message.toInt();
+    preferences.putBool("deviceActive", deviceActive);
+  }
+
+  // Prijeti nocniho rezimu
+  if (String(topic) == mqtt_topic_night_mode) 
+  {
+    nightMode = message.toInt();
+  }
 }
+
+unsigned long singleClickTimeout = 0;
 void IRAM_ATTR touchInterrupt() 
 {
-  // if (settingMin)
-  // {
-  //   settingMin = false;
-  //   settingMax = true;
-  // }
-  // else if (settingMax)
-  // {
-  //   settingMax = false;
-  // }
-  // else
-  // {
-  //   settingMin = true;
-  // }
-
   unsigned long currentTime = millis();
   if (currentTime - lastTouchTime < doubleClickThreshold) 
   {
@@ -87,7 +121,61 @@ void IRAM_ATTR touchInterrupt()
     clickCount = 1;
   }
   lastTouchTime = currentTime;
+  singleClickTimeout = lastTouchTime + doubleClickThreshold;
 }
+
+void sendMoisture() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop(); 
+
+  // Publikovani vlhkosti
+  String moistureStr = String(moisture);
+  client.publish(mqtt_topic_moisture, moistureStr.c_str());
+}
+
+void sendMinMoisture() 
+{
+  if (!client.connected())
+    reconnect();
+
+  client.loop();
+
+  String minMoistureStr = String(minMoisture);
+  client.publish(mqtt_topic_min_moisture, minMoistureStr.c_str());
+}
+
+void sendMaxMoisture() {
+  if (!client.connected())
+    reconnect();
+
+  client.loop();
+
+  String maxMoistureStr = String(maxMoisture);
+  client.publish(mqtt_topic_max_moisture, maxMoistureStr.c_str());
+}
+
+void sendNightMode() {
+  if (!client.connected())
+    reconnect();
+
+  client.loop();
+
+  String nightModeStr = String(nightMode);
+  client.publish(mqtt_topic_night_mode, nightModeStr.c_str());
+}
+
+void sendDeviceActive() {
+  if (!client.connected())
+    reconnect();
+
+  client.loop();
+
+  String deviceActiveStr = String(deviceActive);
+  client.publish(mqtt_topic_device_active, deviceActiveStr.c_str());
+}
+
 
 void initializeSystem() 
 {
@@ -95,10 +183,13 @@ void initializeSystem()
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) 
   {
     while (true)
-      ; // Zastaví program
+      ; // Zastavi program
   }
 
-  // Otevření preferences
+  client.setServer(mqttServer, 1883);
+  client.setCallback(callback);
+
+  // Otevreni preferences
   preferences.begin("moistureSett", false);
 
   minMoisture = preferences.getInt("minMoisture", 20);
@@ -116,36 +207,33 @@ void initializeSystem()
   }
 // CHECK
 
-  // Připojení k Wi-Fi
+  // Pripojeni k Wi-Fi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) 
   {
     delay(500);
   }
 
-  // Nastavení NTP serveru
+  // Nastaveni NTP serveru
   configTime(3600, 3600, "pool.ntp.org");
 
-  // Inicializace pinů
+  // Inicializace pinu
   pinMode(SOIL_SENSOR_PIN, INPUT);
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(PUMP_PIN2, OUTPUT);
   pinMode(TOUCH_PIN, INPUT);
 
-  pinMode(CLK, INPUT);
-  pinMode(DT, INPUT);
-  pinMode(SW, INPUT_PULLUP);
-
-  lastStateCLK = digitalRead(CLK);
-
-
   attachInterrupt(digitalPinToInterrupt(TOUCH_PIN), touchInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(SW), setting, RISING);
 
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
+
+  sendMinMoisture();
+  sendMaxMoisture();
+  sendDeviceActive();
+  sendNightMode();
 }
 
 String getCurrentTime() 
@@ -175,17 +263,9 @@ void enterSleepMode()
   esp_deep_sleep_start();
 }
 
-// // Funkce pro čtení hodnoty vlhkosti půdy
-// void updateMoisture() 
-// {
-//   int sensorValue = analogRead(SOIL_SENSOR_PIN);
-//   moisture = map(sensorValue, 2647, 976, 0, 100); 
-// }
-
 // Definice proměnných pro vlhkost
 const float alpha = 0.01; // Koeficient pro EMA (0 < alpha < 1)
 float previousEMA = 0;    // Předchozí hodnota EMA
-// float moisture = 0;       // Aktuální hodnota vlhkosti
 
 // Funkce pro čtení hodnoty vlhkosti půdy
 void updateMoisture() 
@@ -283,6 +363,7 @@ void toggleDeviceMode()
   digitalWrite(PUMP_PIN, LOW);
   digitalWrite(PUMP_PIN2, LOW);
 
+  sendDeviceActive();
   delay(2000);
 }
 
@@ -293,10 +374,12 @@ void checkNightMode()
   if (currentTime >= "22:00:00" || currentTime <= "08:00:00") 
   {
     nightMode = true;
+    sendNightMode();
   } 
   else 
   {
     nightMode = false;
+    sendNightMode();
   }
 }
 
@@ -404,7 +487,46 @@ void updateDisplay()
   display.print(String(moisture) + "%");
   display.setTextSize(1);
 
+// Zobrazení stavu MQTT
+  display.setCursor(0, SCREEN_HEIGHT - 8);
+  display.print("MQTT");
+  if (!client.connected()) // Pokud není připojeno k MQTT
+  {
+    display.drawLine(0, SCREEN_HEIGHT - 5, 4 * 6 - 2, SCREEN_HEIGHT - 5, SSD1306_WHITE);  // Čára přes "MQTT"
+    display.drawLine(0, SCREEN_HEIGHT - 4, 4 * 6 - 2, SCREEN_HEIGHT - 4, SSD1306_WHITE);  // Čára přes "MQTT"
+  }
+
   display.display();
+}
+
+// Funkce pro zpracovani poctu kliknuti
+void processTouchClicks() 
+{
+  if (clickCount == 1 && millis() > singleClickTimeout) 
+  {
+    if (settingMin)
+    {
+      settingMin = false;
+      sendMinMoisture();
+      settingMax = true;
+    }
+    else if (settingMax)
+    {
+      settingMax = false;
+      sendMaxMoisture();
+    }
+    else
+    {
+      settingMin = true;
+    }
+
+    clickCount = 0;
+  }
+  else if (clickCount == 2) 
+  {
+    toggleDeviceMode();
+    clickCount = 0;
+  }
 }
 
 void setMinimumMoisture() 
@@ -423,7 +545,7 @@ void setMinimumMoisture()
     display.print(minMoisture);
     display.print("%");
 
-    // Vykreslení posuvníku
+    // Vykresleni posuvníku
     display.setTextSize(1);
     display.setCursor(0, 50);
     int sliderPosition = map(minMoisture, 0, 100, 0, SCREEN_WIDTH);
@@ -437,27 +559,26 @@ void setMinimumMoisture()
     int indicatorX = sliderPosition - (indicatorWidth / 2);
     display.fillRect(indicatorX, 46, indicatorWidth, indicatorHeight, SSD1306_WHITE);
 
-
     display.display();
 
-    // TMP - simulace nastaveni hodnoty
-      minMoisture += 1;
-      if (minMoisture > 100) 
-      {
-          minMoisture = 0;
-      }
-    // TMP END
-    
+    minMoisture += 1;
+    if (minMoisture > 100) 
+    {
+        minMoisture = 0;
+    }
+
     preferences.putInt("minMoisture", minMoisture);
 
-    delay(200);
+    processTouchClicks();
+
+    delay(300);
   }
 }
 
 void setMaximumMoisture() 
 {
-  // while (settingMax) 
-  // {
+  while (settingMax) 
+  {
     display.clearDisplay();
 
     display.setTextSize(1);
@@ -486,24 +607,18 @@ void setMaximumMoisture()
 
     display.display();
 
-
-    // Read the current state of CLK
-
+    maxMoisture += 1;
+    if (maxMoisture > 100) 
+    {
+        maxMoisture = 0;
+    }
 
     preferences.putInt("maxMoisture", maxMoisture);
 
-    // delay(100);
-    // }
-}
+    processTouchClicks();
 
-// Funkce pro zpracování dvojitého kliknutí
-void processTouchClicks() 
-{
-  if (clickCount == 2) 
-  {
-    toggleDeviceMode();
-    clickCount = 0;
-  }
+    delay(300);
+    }
 }
 
 void setup() 
@@ -513,45 +628,21 @@ void setup()
 
 void loop() 
 {
-  updateMoisture();
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();  // Zpracování zpráv
 
+  updateMoisture();
+  sendMoisture();  
+  
   processTouchClicks();
 
   if (settingMin) 
     setMinimumMoisture();
   
   if (settingMax) 
-  {
-    // Read the current state of CLK
-    currentStateCLK = digitalRead(CLK);
-    
-    // If the last and current state of CLK are different, then a pulse occurred
-    if (currentStateCLK != lastStateCLK) 
-    {
-      // Check the state of DT to determine the rotation direction
-      if (digitalRead(DT) != currentStateCLK) 
-      {
-        maxMoisture--;
-      } 
-      else 
-      {
-        maxMoisture++;
-      }
-
-      // Ensure the moisture value stays between 0 and 100
-      if (maxMoisture < 0) maxMoisture = 0;
-      if (maxMoisture > 100) maxMoisture = 100;
-
-      preferences.putInt("maxMoisture", maxMoisture);  // Save the new value
-          lastStateCLK = currentStateCLK;
-
-    }
-
-    // Remember last CLK state
-
-    delay(30);  // Short delay to debounce
-    setMaximumMoisture();  // Update display
-  }
+    setMaximumMoisture();
 
   if (deviceActive) 
   {
@@ -565,7 +656,6 @@ void loop()
       watering_cycle();
     }
 
-    checkNightMode();
     updateDisplay();
   }
   else if (!settingMin && !settingMax)
@@ -573,6 +663,8 @@ void loop()
     if (!timedWakeup)
       updateDisplay();
   }
+  
+  checkNightMode();
 
   delay(10);
   // if (watering == false && (millis() - lastTouchTime) > 60000)
