@@ -33,13 +33,13 @@ int maxMoisture;
 
 unsigned long lastButtonPress = 0;
 volatile unsigned long lastTouchTime = 0;
+volatile unsigned long lastWakeup = 0;
 volatile int clickCount = 0;
 const unsigned long doubleClickThreshold = 400; // Casovy limit pro dvojite kliknuti
 
 // Definice proměnných pro vlhkost
 const float alpha = 0.01; // Koeficient pro EMA (0 < alpha < 1)
 float previousEMA = 0;    // Předchozí hodnota EMA
-
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -208,10 +208,12 @@ void initializeSystem()
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) 
   {
     timedWakeup = true;
+    lastWakeup = millis();
   }
   else if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_GPIO)
   {
     touchWakeup = true;
+    lastWakeup = millis();
   }
   else
   {
@@ -270,7 +272,7 @@ void enterSleepMode()
   if (!deviceActive || nightMode) 
     esp_sleep_enable_timer_wakeup(60UL * 30 * 1000000);  // Uspat na 30 minut
   else
-    esp_sleep_enable_timer_wakeup(10 * 60 * 1000000);  // Uspat na 10 minut
+    esp_sleep_enable_timer_wakeup(60UL * 5 * 1000000);  // Uspat na 10 minut
 
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_13,1);
   esp_deep_sleep_start();
@@ -373,15 +375,19 @@ void toggleDeviceMode()
 // Funkce pro kontrolu nočního režimu
 void checkNightMode() 
 {
+  bool lastState = nightMode;
   String currentTime = getCurrentTime();
   if (currentTime >= "22:00:00" || currentTime <= "08:00:00") 
   {
     nightMode = true;
-    sendNightMode();
   } 
   else 
   {
     nightMode = false;
+  }
+
+  if (lastState != nightMode) 
+  {
     sendNightMode();
   }
 }
@@ -591,7 +597,7 @@ void setMinimumMoisture()
 
     processTouchClicks();
 
-    delay(300);
+    delay(250);
   }
 }
 
@@ -637,8 +643,8 @@ void setMaximumMoisture()
 
     processTouchClicks();
 
-    delay(300);
-    }
+    delay(250);
+  }
 }
 
 void setup() 
@@ -674,8 +680,8 @@ void loop()
     {
       watering_cycle();
     }
-
-    updateDisplay();
+    if (!timedWakeup) // Automaticke probuzeni - nevykresit displej
+      updateDisplay();
   }
   else if (!settingMin && !settingMax)
   {
@@ -687,8 +693,8 @@ void loop()
 
   delay(10);
 
-  if (watering == false && (millis() - lastTouchTime) > 60000)
-     enterSleepMode();
-  else if (timedWakeup)
-    enterSleepMode();
+  // if (watering == false && (millis() - lastTouchTime) > 1000 * 180) // 3 minuty
+  //   enterSleepMode();
+  // else if (watering == false && timedWakeup && (millis() - lastWakeup) > 1000 * 30) // 30 sekund na aktualizaci vlhkosti
+  //   enterSleepMode();
 }
