@@ -1,0 +1,223 @@
+% IMP - Dokumentace k projektu
+% Author: Ondřej Janečka (xjanec33)
+% Date: 2024-12-06
+
+\documentclass[a4paper, 11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[left=2cm, top=3cm, textwidth=17cm, textheight=24cm]{geometry}
+\usepackage[czech]{babel}
+\usepackage{times}
+\usepackage[algo2e, noline, ruled, czech, longend]{algorithm2e}
+\usepackage{setspace}
+
+\usepackage{hyperref}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{pdflscape}
+
+\newcommand{\textttsp}[1]{\;\texttt{#1}}
+
+\begin{document}
+
+\begin{titlepage}
+	\begin{center}
+		{\Huge \textsc{Vysoké učení technické v~Brně}\\}
+		{\huge \textsc{Fakulta informačních technologií}\\}
+		\vspace{\stretch{0.382}}
+		{\LARGE Dokumentace k~projektu do předmětu IMP\\}
+		{\Huge Automatické zalévání rostlin v interiéru\\}
+		\vspace{\stretch{0.618}}
+	\end{center}
+	{\Large \today \hfill Ondřej\,Janečka}
+\end{titlepage}
+
+\newpage
+\section{Úvod}
+
+\subsection{Motivace}
+Automatizace v domácnosti je jedním z klíčových trendů moderního technologického vývoje. S rostoucím počtem lidí žijících v městských oblastech 
+a jejich hektickým životním stylem často dochází k zanedbávání péče o rostliny, ať už doma, nebo v kanceláři. Tento problém lze řešit pomocí technologie, 
+která umožní efektivní a autonomní péči o rostliny.
+
+Hlavní motivací tohoto projektu je vytvoření systému automatického zavlažování rostlin, který bude snadno použitelný i pro uživatele bez hlubších technických znalostí. 
+Kombinace senzoru vlhkosti půdy, vodního čerpadla a komunikační technologie MQTT zajistí efektivní a přizpůsobivou péči o rostliny na základě aktuálních podmínek.
+
+\subsection{Cíl projektu}
+Cílem projektu je navrhnout a implementovat systém automatického zavlažování rostlin, který bude splňovat následující vlastnosti:
+\begin{itemize}
+    \item \textbf{Autonomní:} Systém bude sám měřit vlhkost půdy, vyhodnocovat data a podle potřeby zavlažovat rostliny.
+    \item \textbf{Přizpůsobivý:} Uživatelé budou mít možnost nastavit minimální a maximální úroveň vlhkosti půdy, které systém bude udržovat.
+    \item \textbf{Propojený:} Data o vlhkosti půdy a nastavení systému budou publikována pomocí protokolu MQTT, což umožní snadnou integraci s chytrými domácnostmi.
+    \item \textbf{Energeticky efektivní:} Zařízení bude využívat režim spánku pro snížení spotřeby energie a zároveň bude optimalizováno pro běh na baterie.
+\end{itemize}
+
+\subsection{Očekávaný přínos a vlastnosti řešení}
+Projekt přináší následující výhody:
+\begin{itemize}
+    \item \textbf{Snadné ovládání a nastavení:} Systém umožňuje uživatelům nastavovat parametry jak pomocí MQTT zpráv, tak přímo pomocí tlačítka na zařízení.
+    \item \textbf{Široké využití:} Díky možnosti publikování dat na MQTT broker lze systém integrovat s různými chytrými asistenty, jako je Home Assistant nebo jiné IoT platformy.
+\end{itemize}
+
+\subsection{Představa ověření řešení}
+Pro ověření funkčnosti systému budou použity následující metody:
+\begin{enumerate}
+    \item \textbf{Testování funkcionality:} Ověření přesnosti senzoru vlhkosti půdy a jeho schopnosti spouštět zavlažování při dosažení hraničních hodnot.
+    \item \textbf{Interoperabilita:} Testování přenosu dat pomocí MQTT protokolu na různých platformách.
+    \item \textbf{Praktické nasazení:} Umístění zařízení v reálném prostředí (například doma nebo ve skleníku) a sledování jeho výkonu po dobu několika týdnů. (Z důvodu časových možností vynecháno.)
+\end{enumerate}
+
+\subsection{Význam projektu}
+Tento projekt má význam jak z hlediska praktického uplatnění, tak i z hlediska vzdělávacího přínosu. Během vývoje bude pokryto široké spektrum technologií, 
+včetně práce se senzory, komunikace přes MQTT a optimalizace kódu pro nízkou spotřebu energie.
+
+Celkové řešení přispěje k vyšší efektivitě péče o rostliny, což může být užitečné pro jednotlivce, firmy i komunitní projekty, například městské zahrady nebo komunitní skleníky.
+
+\section{Rozbor a návrh řešení}
+
+\subsection{Přehled dostupných prostředků a metod}
+
+Pro návrh a implementaci systému automatického zavlažování byly zváženy následující prostředky a technologie:
+\begin{itemize}
+    \item \textbf{Vývojová platforma:} ESP32 – moderní mikrokontrolér s nízkou spotřebou energie, podporou Wi-Fi a schopností zpracování analogových signálů.
+    \item \textbf{Senzor vlhkosti půdy:} Analogový senzor schopný měřit vlhkost půdy pomocí odporového měření.
+    \item \textbf{Vodní čerpadlo:} Malé vodní čerpadlo napájené z vývojové platformy, vhodné pro zavlažování rostlin.
+    \item \textbf{Displej:} Integrovaný OLED displej (128x64 pixelů) na desce IdeaSpark, využívaný pro zobrazení informací o stavu zařízení.
+    \item \textbf{Komunikace:} MQTT protokol umožňující efektivní přenos dat mezi zařízením a brokerem.
+    \item \textbf{Napájení:} Systém bude optimalizován pro provoz na baterie s podporou energeticky efektivních režimů spánku.
+    \item \textbf{Programovací platforma:} PlatformIO – moderní prostředí pro vývoj firmware s podporou knihoven, verzování a automatizovaného sestavení kódu.
+    \item \textbf{Programovací jazyk:} C++ pro implementaci firmwaru na ESP32.
+\end{itemize}
+
+\subsection{Perspektivní směry a vývoj řešení}
+
+Moderní IoT technologie nabízejí několik perspektivních směrů, které byly při návrhu zohledněny:
+\begin{itemize}
+    \item \textbf{Automatizace:} Zavlažování na základě aktuální vlhkosti půdy minimalizuje riziko uschnutí rostliny.
+    \item \textbf{Přenositelnost:} Použití MQTT umožňuje integraci s existujícími chytrými domácnostmi.
+    \item \textbf{Energetická úspornost:} Režim spánku mikrokontroléru snižuje spotřebu energie.
+    \item \textbf{Rozšiřitelnost:} Možnost přidat další senzory, například teploty nebo osvětlení, pro rozšíření funkcionality.
+    \item \textbf{Integrovaný design:} Použití vývojové desky IdeaSpark s integrovaným displejem zjednodušuje hardwarový návrh a minimalizuje velikost zařízení.
+\end{itemize}
+
+\subsection{Návrh vlastního řešení}
+
+Navržený systém automatického zavlažování je tvořen následujícími klíčovými komponentami:
+\begin{enumerate}
+    \item \textbf{Vstupy:}
+    \begin{itemize}
+        \item Analogový senzor vlhkosti půdy připojený k ESP32.
+        \item MQTT zprávy pro nastavení minimální a maximální vlhkosti a pro aktivaci režimu zařízení.
+        \item Dotykové tlačítko pro lokální ovládání zařízení (přepínání režimů a nastavování hraničních hodnot).
+    \end{itemize}
+    \item \textbf{Výstupy:}
+    \begin{itemize}
+        \item OLED displej integrovaný na desce IdeaSpark pro zobrazení aktuálního stavu vlhkosti, režimu zařízení a dalších informací.
+%CHECK
+        \item ???Vodní čerpadlo řízené reléovým obvodem.???
+%CHECK
+        \item MQTT zprávy obsahující aktuální hodnoty vlhkosti a stav systému.
+    \end{itemize}
+    \item \textbf{Základní komponenty:}
+    \begin{itemize}
+        \item \textbf{ESP32:} Centrální řídicí jednotka.
+        \item \textbf{Senzor vlhkosti půdy:} Poskytuje informace o aktuální vlhkosti půdy.
+        \item \textbf{Vodní čerpadlo:} Zajišťuje distribuci vody při aktivaci zavlažovacího cyklu.
+        \item \textbf{MQTT broker:} Slouží k přenosu dat mezi zařízením a uživatelem.
+        \item \textbf{OLED displej:} Vizualizace klíčových informací.
+        \item \textbf{Dotykové tlačítko:} Lokální ovládání zařízení.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Základní popis chování systému}
+
+Systém pracuje na základě následujících kroků:
+\begin{enumerate}
+    \item ESP32 pravidelně měří vlhkost půdy a vypočítává klouzavý průměr hodnoty (EMA) pro snížení šumu.
+    \item Pokud vlhkost půdy klesne pod nastavenou minimální hodnotu, systém aktivuje zavlažovací cyklus.
+    \item Zavlažovací cyklus aktivuje vodní čerpadlo na určený časový interval, přičemž zavlažování pokračuje, dokud není dosažena požadovaná vlhkost půdy, nebo dokud čerpadlo nepřekročí maximální bezpečnou dobu provozu. Tím je umožněna postupná aktualizace vlhkosti půdy s ohledem na zpoždění způsobené jejím prosakováním.
+    \item Uživatel může nastavit hraniční hodnoty vlhkosti buď lokálně pomocí tlačítka, nebo vzdáleně přes MQTT zprávy.
+    \item OLED displej zobrazuje aktuální vlhkost, režim zařízení (aktivní/neaktivní), stav nočního režimu, zda probíhá zavlažovací cyklus, sílu Wi-Fi signálu a SSID sítě, aktuální čas a stav připojení k MQTT brokeru. 
+    \item Systém přechází do režimu spánku, pokud není aktivní zavlažování nebo jiné procesy, aby se minimalizovala spotřeba energie.
+\end{enumerate}
+
+Navržené řešení využívá vývojovou platformu PlatformIO, která usnadňuje správu knihoven, kompilaci a ladění firmwaru. 
+Použití desky od IdeaSpark s integrovaným OLED displejem minimalizuje složitost hardwarového návrhu a zjednodušuje integraci jednotlivých komponent.
+
+\section{Vlastní řešení}
+
+\subsection{Popis implementovaného řešení}
+
+Výsledné řešení automatického zavlažování rostlin bylo realizováno na platformě ESP32 s využitím následujících komponent a funkcionalit:
+\begin{itemize}
+    \item \textbf{ESP32:} Centrální řídicí jednotka zajišťuje čtení dat ze senzoru vlhkosti, řízení čerpadla, komunikaci s MQTT brokerem a zobrazování informací na OLED displeji.
+    \item \textbf{Analogový senzor vlhkosti půdy:} Poskytuje analogový signál, který je zpracován na hodnotu vlhkosti v procentech. Pro minimalizaci šumu a fluktuací hodnot je aplikován exponenciální klouzavý průměr (EMA).
+    \item \textbf{Vodní čerpadlo:} Aktivováno, pokud vlhkost půdy klesne pod nastavenou minimální hodnotu. Čerpadlo běží v cyklech s omezením maximální doby provozu.
+    \item \textbf{OLED displej:} Zobrazuje aktuální vlhkost, režim zařízení, sílu Wi-Fi signálu a stav nočního režimu.
+    \item \textbf{MQTT komunikace:} Zařízení publikuje aktuální hodnoty vlhkosti a přijímá nastavení minimální a maximální vlhkosti, režimu zařízení a nočního režimu.
+    \item \textbf{Dotykové tlačítko:} Slouží pro přepínání mezi režimy zařízení a lokální nastavení minimální a maximální vlhkosti.
+\end{itemize}
+
+Řešení bylo implementováno pomocí platformy PlatformIO, která poskytuje efektivní nástroje pro vývoj, ladění a verzování kódu. 
+Celková struktura kódu zahrnuje funkce pro zpracování vlhkosti, řízení čerpadla, komunikaci přes MQTT a zobrazení dat na displeji.
+
+\subsection{Řešené problémy}
+
+Během realizace projektu se vyskytlo několik problémů, které bylo nutné vyřešit:
+
+\subsubsection{Kolísání hodnot senzoru vlhkosti}
+Analogový senzor vlhkosti půdy vykazoval kolísavé hodnoty vlivem elektrického šumu a variability prostředí. 
+Problém byl odhalen během testování stability hodnot při neměnných podmínkách. Řešení spočívalo v implementaci exponenciálního klouzavého průměru (EMA), 
+který výrazně snížil šum a umožnil přesnější měření vlhkosti.
+
+\subsubsection{Zpoždění při prosakování vlhkosti}
+Během testování zavlažovacího cyklu bylo zjištěno, že vlhkost půdy se zvyšuje s určitou prodlevou, což mohlo vést k přelití rostlin. 
+Tento problém byl odhalen analýzou časových průběhů vlhkosti po zavlažování. Řešení zahrnovalo implementaci časově řízených zavlažovacích cyklů, 
+které umožňují postupnou aktualizaci vlhkosti půdy a zabraňují přelití.
+
+\subsubsection{Výpadky připojení k MQTT brokeru}
+Během provozu zařízení docházelo k občasným výpadkům připojení k MQTT brokeru. Příčina byla identifikována jako nestabilní Wi-Fi signál. 
+Problém byl vyřešen přidáním funkce pro automatické opětovné připojení k brokeru.
+
+\subsection{Překonání problémů a výsledky}
+
+Řešení uvedených problémů vedlo k vytvoření stabilního a efektivního systému automatického zavlažování. 
+Stabilita senzoru vlhkosti byla zvýšena použitím klouzavého průměru, optimalizace zavlažovacích cyklů eliminovala riziko přelití
+a implementace režimu spánku zajistila úsporu energie. Komunikace přes MQTT byla optimalizována a systém je nyní schopen obnovit připojení při výpadku Wi-Fi.
+
+Celkové řešení splňuje všechny požadavky zadání a je připraveno k praktickému nasazení. Výsledkem je systém, který je energeticky efektivní, 
+přizpůsobivý a snadno ovladatelný, s možností rozšíření o další funkce.
+
+\section{Závěrečné zhodnocení}
+
+\subsection{Shrnutí vlastností řešení}
+
+Vlastní řešení automatického zavlažování rostlin implementuje všechny předem stanovené funkce projektu. 
+Systém je schopen autonomně měřit vlhkost půdy, řídit zavlažování a komunikovat přes MQTT. 
+Uživatelé mohou nastavit minimální a maximální vlhkost půdy a sledovat aktuální stav systému na OLED displeji.
+
+\subsection{Splnění požadavků zadání}
+
+Všechny požadavky uvedené v zadání byly splněny.
+
+\subsection{Autoevaluace}
+
+Na základě metody hodnocení z Průvodce projektem IMP bych projekt zhodnotil následujícím způsobem:
+\begin{itemize}
+    \item \textbf{Funkčnost řešení (F):} Systém spolehlivě provádí měření vlhkosti, řízení čerpadla a komunikaci přes MQTT. Zavlažovací cykly probíhají efektivně a splňují všechny požadavky zadání. Hodnocení: \textbf{5/5 bodů}.
+    \item \textbf{Kvalita řešení (Q):} Kód je strukturovaný a připravený pro budoucí rozšiřování. Nicméně v projektu nebylo plně využito objektově orientované programování (OOP), což by mohlo přispět k lepší modulárnosti a přehlednosti kódu. Hodnocení: \textbf{1/2 body}.    \item \textbf{Přístup k řešení (E):} Vývoj probíhal iterativně s důrazem na testování a ladění jednotlivých částí systému. Byly implementovány efektivní postupy pro eliminaci problémů, jako je šum senzoru nebo výpadky MQTT. Hodnocení: \textbf{2/2 body}.
+    \item \textbf{Prezentace (P):} Dokumentace projektu je podrobná a poskytuje jasný přehled o implementaci, výsledcích a řešení problémů. Vizualizace na OLED displeji je uživatelsky přívětivá. Hodnocení: \textbf{2/2 body}.
+    \item \textbf{Dokumentace (D):} Dokumentace obsahuje podrobný popis návrhu, řešení a způsobu testování. Hodnocení: \textbf{3/3 body}.
+\end{itemize}
+
+\subsection{Celkové zhodnocení}
+
+Celkově projekt splňuje očekávané cíle a přináší funkční a přizpůsobivé řešení problému automatického zavlažování rostlin. Zařízení je snadno použitelné 
+a dostatečně robustní pro reálné nasazení. Jednoduchá konfigurace a možnost integrace s chytrými domácnostmi zvyšují přidanou hodnotu projektu.
+
+Hlavním přínosem projektu je rozšíření znalostí v oblasti IoT, práce s mikrokontroléry, implementace protokolu MQTT a optimalizace systémů s nízkou spotřebou energie. 
+Projekt je připraven na další rozšiřování a může sloužit jako základ pro komplexnější systémy péče o rostliny.
+
+\section{Literatura}
+
+\end{document}
