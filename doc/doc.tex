@@ -7,16 +7,10 @@
 \usepackage[T1]{fontenc}
 \usepackage[left=2cm, top=3cm, textwidth=17cm, textheight=24cm]{geometry}
 \usepackage[czech]{babel}
-\usepackage{times}
-\usepackage[algo2e, noline, ruled, czech, longend]{algorithm2e}
-\usepackage{setspace}
-
-\usepackage{hyperref}
-\usepackage{multirow}
 \usepackage{graphicx}
-\usepackage{pdflscape}
-
-\newcommand{\textttsp}[1]{\;\texttt{#1}}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\usepackage[hyphenbreaks]{breakurl}
 
 \begin{document}
 
@@ -25,11 +19,19 @@
 		{\Huge \textsc{Vysoké učení technické v~Brně}\\}
 		{\huge \textsc{Fakulta informačních technologií}\\}
 		\vspace{\stretch{0.382}}
+        \includegraphics[width=0.5\textwidth]{img/FIT_barevne_CMYK_CZ.eps}\\
+		\vspace{\stretch{0.382}}
 		{\LARGE Dokumentace k~projektu do předmětu IMP\\}
 		{\Huge Automatické zalévání rostlin v interiéru\\}
 		\vspace{\stretch{0.618}}
 	\end{center}
 	{\Large \today \hfill Ondřej\,Janečka}
+	
+	\vspace{1cm}
+	\begin{center}
+		\href{https://drive.google.com/drive/folders/1NW7rmXldFyzUyTPD2Msdj684g9g_p-tH?usp=sharing}{Video s prezentací projektu}
+	\end{center}
+
 \end{titlepage}
 
 \newpage
@@ -79,7 +81,7 @@ Celkové řešení přispěje k vyšší efektivitě péče o rostliny, což mů
 
 Pro návrh a implementaci systému automatického zavlažování byly zváženy následující prostředky a technologie:
 \begin{itemize}
-    \item \textbf{Vývojová platforma:} ESP32 – moderní mikrokontrolér s nízkou spotřebou energie, podporou Wi-Fi a schopností zpracování analogových signálů.
+    \item \textbf{Vývojová platforma:} ESP32 – moderní mikrokontrolér s nízkou spotřebou energie, podporou Wi-Fi a schopností zpracování analogových signálů. Pro zajištění dostatečného počtu napájecích portů pro připojení senzorů a dalších komponent byla využita také expansion board, která usnadnila zapojení a distribuci napájení.
     \item \textbf{Senzor vlhkosti půdy:} Analogový senzor schopný měřit vlhkost půdy pomocí odporového měření.
     \item \textbf{Vodní čerpadlo:} Malé vodní čerpadlo napájené z vývojové platformy, vhodné pro zavlažování rostlin.
     \item \textbf{Displej:} Integrovaný OLED displej (128x64 pixelů) na desce IdeaSpark, využívaný pro zobrazení informací o stavu zařízení.
@@ -113,16 +115,16 @@ Navržený systém automatického zavlažování je tvořen následujícími kl�
     \item \textbf{Výstupy:}
     \begin{itemize}
         \item OLED displej integrovaný na desce IdeaSpark pro zobrazení aktuálního stavu vlhkosti, režimu zařízení a dalších informací.
-%CHECK
-        \item ???Vodní čerpadlo řízené reléovým obvodem.???
-%CHECK
+        \item Vodní čerpadlo řízené driverem L293D, umožňující jeho spolehlivý provoz při napětí 3.3 V.
         \item MQTT zprávy obsahující aktuální hodnoty vlhkosti a stav systému.
     \end{itemize}
     \item \textbf{Základní komponenty:}
     \begin{itemize}
         \item \textbf{ESP32:} Centrální řídicí jednotka.
+        \item \textbf{Expansion board:} Rozšiřující deska poskytující dostatečný počet napájecích portů a zjednodušující zapojení senzorů a dalších periferií.
         \item \textbf{Senzor vlhkosti půdy:} Poskytuje informace o aktuální vlhkosti půdy.
-        \item \textbf{Vodní čerpadlo:} Zajišťuje distribuci vody při aktivaci zavlažovacího cyklu.
+        \item \textbf{Vodní čerpadlo:} Malé čerpadlo s napětím 3.3 V, zajišťující distribuci vody při aktivaci zavlažovacího cyklu.
+        \item \textbf{Driver L293D:} Řídicí obvod umožňující spolehlivé ovládání vodního čerpadla s možností řízení jeho chodu.
         \item \textbf{MQTT broker:} Slouží k přenosu dat mezi zařízením a uživatelem.
         \item \textbf{OLED displej:} Vizualizace klíčových informací.
         \item \textbf{Dotykové tlačítko:} Lokální ovládání zařízení.
@@ -179,6 +181,14 @@ které umožňují postupnou aktualizaci vlhkosti půdy a zabraňují přelití.
 Během provozu zařízení docházelo k občasným výpadkům připojení k MQTT brokeru. Příčina byla identifikována jako nestabilní Wi-Fi signál. 
 Problém byl vyřešen přidáním funkce pro automatické opětovné připojení k brokeru.
 
+\subsubsection{Řízení vodního čerpadla}
+Během návrhu ovládání vodního čerpadla se objevilo několik technických výzev:
+
+\begin{itemize}
+    \item \textbf{Nedostatečný výstupní proud ESP32:} ESP32 není schopné dodat dostatečný proud pro přímé napájení čerpadla. Tento problém byl vyřešen použitím driveru L293D podle manuálu \cite{sunfounder_pump_esp32}, který umožňuje řídit čerpadlo pomocí nízkoproudových signálů z ESP32 a zároveň napájet čerpadlo z pinů na rozšiřující desce.
+    \item \textbf{Kompatibilita s napětím čerpadla:} Vodní čerpadlo bylo navrženo pro provoz při 3.3 V. Driver L293D byl nakonfigurován tak, aby dodával požadované napětí a proud, přičemž byla zachována bezpečnost a spolehlivost čerpadla.
+\end{itemize}
+
 \subsection{Překonání problémů a výsledky}
 
 Řešení uvedených problémů vedlo k vytvoření stabilního a efektivního systému automatického zavlažování. 
@@ -207,7 +217,7 @@ Na základě metody hodnocení z Průvodce projektem IMP bych projekt zhodnotil 
     \item \textbf{Funkčnost řešení (F):} Systém spolehlivě provádí měření vlhkosti, řízení čerpadla a komunikaci přes MQTT. Zavlažovací cykly probíhají efektivně a splňují všechny požadavky zadání. Hodnocení: \textbf{5/5 bodů}.
     \item \textbf{Kvalita řešení (Q):} Kód je strukturovaný a připravený pro budoucí rozšiřování. Nicméně v projektu nebylo plně využito objektově orientované programování (OOP), což by mohlo přispět k lepší modulárnosti a přehlednosti kódu. Hodnocení: \textbf{1/2 body}.    \item \textbf{Přístup k řešení (E):} Vývoj probíhal iterativně s důrazem na testování a ladění jednotlivých částí systému. Byly implementovány efektivní postupy pro eliminaci problémů, jako je šum senzoru nebo výpadky MQTT. Hodnocení: \textbf{2/2 body}.
     \item \textbf{Prezentace (P):} Dokumentace projektu je podrobná a poskytuje jasný přehled o implementaci, výsledcích a řešení problémů. Vizualizace na OLED displeji je uživatelsky přívětivá. Hodnocení: \textbf{2/2 body}.
-    \item \textbf{Dokumentace (D):} Dokumentace obsahuje podrobný popis návrhu, řešení a způsobu testování. Hodnocení: \textbf{3/3 body}.
+    \item \textbf{Dokumentace (D):} Dokumentace je psána pomocí nástroje \LaTeX. Obsahuje podrobný popis návrhu, řešení a způsobu testování. Hodnocení: \textbf{3/3 body}.
 \end{itemize}
 
 \subsection{Celkové zhodnocení}
@@ -219,5 +229,7 @@ Hlavním přínosem projektu je rozšíření znalostí v oblasti IoT, práce s 
 Projekt je připraven na další rozšiřování a může sloužit jako základ pro komplexnější systémy péče o rostliny.
 
 \section{Literatura}
+\bibliographystyle{czechiso}
+\bibliography{doc}
 
 \end{document}

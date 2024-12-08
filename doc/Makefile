@@ -4,6 +4,8 @@ all: $(TEXFILE).pdf
 
 $(TEXFILE).pdf: $(TEXFILE).tex
 	latex $(TEXFILE).tex
+	bibtex $(TEXFILE)
+	latex $(TEXFILE).tex
 	latex $(TEXFILE).tex
 	dvips -t a4 $(TEXFILE).dvi
 	ps2pdf -sPAPERSIZE=a4 $(TEXFILE).ps
@@ -11,7 +13,7 @@ $(TEXFILE).pdf: $(TEXFILE).tex
 gen-clean: all clean
 
 clean:
-	rm -f $(TEXFILE).aux $(TEXFILE).dvi $(TEXFILE).log $(TEXFILE).ps $(TEXFILE).out
+	rm -f $(TEXFILE).aux $(TEXFILE).dvi $(TEXFILE).log $(TEXFILE).ps $(TEXFILE).out $(TEXFILE).bbl $(TEXFILE).blg
 
 clean-all: clean
 	rm -f $(TEXFILE).pdf
