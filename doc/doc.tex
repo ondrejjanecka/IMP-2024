@@ -45,6 +45,9 @@ která umožní efektivní a autonomní péči o rostliny.
 Hlavní motivací tohoto projektu je vytvoření systému automatického zavlažování rostlin, který bude snadno použitelný i pro uživatele bez hlubších technických znalostí. 
 Kombinace senzoru vlhkosti půdy, vodního čerpadla a komunikační technologie MQTT zajistí efektivní a přizpůsobivou péči o rostliny na základě aktuálních podmínek.
 
+Nápad vznikl po několika uschlých rostlinách mé přítelkyně, které nebyly zalévány kvůli častému zapomínání. Tento projekt je tedy nejen technickou výzvou, 
+ale také praktickým řešením každodenního problému, který může pomoci mnoha lidem pečovat o jejich rostliny.
+
 \subsection{Cíl projektu}
 Cílem projektu je navrhnout a implementovat systém automatického zavlažování rostlin, který bude splňovat následující vlastnosti:
 \begin{itemize}
@@ -185,7 +188,7 @@ Problém byl vyřešen přidáním funkce pro automatické opětovné připojen�
 Během návrhu ovládání vodního čerpadla se objevilo několik technických výzev:
 
 \begin{itemize}
-    \item \textbf{Nedostatečný výstupní proud ESP32:} ESP32 není schopné dodat dostatečný proud pro přímé napájení čerpadla. Tento problém byl vyřešen použitím driveru L293D podle manuálu \cite{sunfounder_pump_esp32}, který umožňuje řídit čerpadlo pomocí nízkoproudových signálů z ESP32 a zároveň napájet čerpadlo z pinů na rozšiřující desce.
+    \item \textbf{Nedostatečný výstupní proud ESP32:} ESP32 není schopné dodat dostatečný proud pro přímé napájení čerpadla. Tento problém byl vyřešen použitím driveru L293D podle manuálu\cite{sunfounder_pump_esp32}, který umožňuje řídit čerpadlo pomocí nízkoproudových signálů z ESP32 a zároveň napájet čerpadlo z pinů na rozšiřující desce.
     \item \textbf{Kompatibilita s napětím čerpadla:} Vodní čerpadlo bylo navrženo pro provoz při 3.3 V. Driver L293D byl nakonfigurován tak, aby dodával požadované napětí a proud, přičemž byla zachována bezpečnost a spolehlivost čerpadla.
 \end{itemize}
 
@@ -212,12 +215,13 @@ Všechny požadavky uvedené v zadání byly splněny.
 
 \subsection{Autoevaluace}
 
-Na základě metody hodnocení z Průvodce projektem IMP bych projekt zhodnotil následujícím způsobem:
+Na základě metody hodnocení z Průvodce projektem IMP\cite{pruvodce_projektem_imp} bych projekt zhodnotil následujícím způsobem:
 \begin{itemize}
-    \item \textbf{Funkčnost řešení (F):} Systém spolehlivě provádí měření vlhkosti, řízení čerpadla a komunikaci přes MQTT. Zavlažovací cykly probíhají efektivně a splňují všechny požadavky zadání. Hodnocení: \textbf{5/5 bodů}.
-    \item \textbf{Kvalita řešení (Q):} Kód je strukturovaný a připravený pro budoucí rozšiřování. Nicméně v projektu nebylo plně využito objektově orientované programování (OOP), což by mohlo přispět k lepší modulárnosti a přehlednosti kódu. Hodnocení: \textbf{1/2 body}.    \item \textbf{Přístup k řešení (E):} Vývoj probíhal iterativně s důrazem na testování a ladění jednotlivých částí systému. Byly implementovány efektivní postupy pro eliminaci problémů, jako je šum senzoru nebo výpadky MQTT. Hodnocení: \textbf{2/2 body}.
-    \item \textbf{Prezentace (P):} Dokumentace projektu je podrobná a poskytuje jasný přehled o implementaci, výsledcích a řešení problémů. Vizualizace na OLED displeji je uživatelsky přívětivá. Hodnocení: \textbf{2/2 body}.
-    \item \textbf{Dokumentace (D):} Dokumentace je psána pomocí nástroje \LaTeX. Obsahuje podrobný popis návrhu, řešení a způsobu testování. Hodnocení: \textbf{3/3 body}.
+    \item \textbf{Funkčnost řešení (F):} Systém spolehlivě provádí měření vlhkosti, řízení čerpadla a komunikaci přes MQTT. Zavlažovací cykly probíhají efektivně a splňují všechny požadavky zadání. Hodnocení: \textbf{5/5 b.}
+    \item \textbf{Kvalita řešení (Q):} Kód je strukturovaný a připravený pro budoucí rozšiřování. Nicméně v projektu nebylo plně využito objektově orientované programování (OOP), což by mohlo přispět k lepší modulárnosti a přehlednosti kódu. Zobrazování hodnot i jejich nastavení je uživatelsky přívětivé. Hodnocení: \textbf{1.5/2 b.}
+    \item \textbf{Přístup k řešení (E):} Vývoj probíhal iterativně s důrazem na testování a ladění jednotlivých částí systému. Byly implementovány efektivní postupy pro eliminaci problémů, jako je šum senzoru nebo výpadky MQTT. Hodnocení: \textbf{2/2 b.}
+    \item \textbf{Prezentace (P):} Video prezentace ukazuje funkčnost systému, přičemž byly pro demonstraci jednotlivých funkcí upraveny některé parametry (zkrácení času pro uspání systému a zalévací cykly). \textbf{Hodnocení: 2/2 b.}
+    \item \textbf{Dokumentace (D):} Dokumentace je vysázena pomocí \LaTeX. Obsahuje podrobný popis návrhu, řešení a způsobu testování. Hodnocení: \textbf{3/3 b.}
 \end{itemize}
 
 \subsection{Celkové zhodnocení}
@@ -228,6 +232,7 @@ a dostatečně robustní pro reálné nasazení. Jednoduchá konfigurace a možn
 Hlavním přínosem projektu je rozšíření znalostí v oblasti IoT, práce s mikrokontroléry, implementace protokolu MQTT a optimalizace systémů s nízkou spotřebou energie. 
 Projekt je připraven na další rozšiřování a může sloužit jako základ pro komplexnější systémy péče o rostliny.
 
+\newpage
 \section{Literatura}
 \bibliographystyle{czechiso}
 \bibliography{doc}
