@@ -35,10 +35,10 @@ unsigned long lastButtonPress = 0;
 volatile unsigned long lastTouchTime = 0;
 volatile unsigned long lastWakeup = 0;
 volatile int clickCount = 0;
-const unsigned long doubleClickThreshold = 400; // Casovy limit pro dvojite kliknuti
+const unsigned long doubleClickThreshold = 400; // Časový limit pro dvojité kliknutí
 
 // Definice proměnných pro vlhkost
-const float alpha = 0.01; // Koeficient pro EMA (0 < alpha < 1)
+const float alpha = 0.01; // Koeficient pro EMA
 float previousEMA = 0;    // Předchozí hodnota EMA
 
 WiFiClient espClient;
@@ -55,13 +55,10 @@ const char *mqtt_topic_device_active = "smartWatering/device_active";
 
 void reconnect() 
 {
-  // 5 pokusu o připojeni
+  // 5 pokusů o připojeni
   for (int i = 0; i < 5; i++) {
-    Serial.print("Connecting to MQTT...");
-    // Pripojeni k brokeru
+    // Připojení k brokeru
     if (client.connect(mqtt_client_id, mqttAccount, mqttPassword)) {
-      Serial.println("connected");
-      
       // Prihlaseni k odberu zprav
       client.subscribe(mqtt_topic_min_moisture);
       client.subscribe(mqtt_topic_max_moisture);
@@ -70,43 +67,43 @@ void reconnect()
     } 
     else 
     {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(2000);
+      // Další pokus o připojení za půl sekundy
+      delay(500);
     }
   }
 }
 
+// Funkce pro zpracování zpráv z MQTT
 void callback(char* topic, byte* payload, unsigned int length) 
 {
   String message;
-  for (int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++) 
+  {
     message += (char)payload[i];
   }
 
-  // Prijeti minimalni vlhkosti
+  // Přijem minimalní vlhkosti
   if (String(topic) == mqtt_topic_min_moisture) 
   {
     minMoisture = message.toInt();
     preferences.putInt("minMoisture", minMoisture);
   }
   
-  // Prijeti maximalni vlhkosti
+  // Přijem maximalní vlhkosti
   if (String(topic) == mqtt_topic_max_moisture) 
   {
     maxMoisture = message.toInt();
     preferences.putInt("maxMoisture", maxMoisture);
   }
 
-  // Prijeti stavu zarizeni
+  // Přijem stavu zařízení
   if (String(topic) == mqtt_topic_device_active) 
   {
     deviceActive = message.toInt();
     preferences.putBool("deviceActive", deviceActive);
   }
 
-  // Prijeti nocniho rezimu
+  // Přijem nočního režimu
   if (String(topic) == mqtt_topic_night_mode) 
   {
     nightMode = message.toInt();
@@ -135,7 +132,6 @@ void sendMoisture() {
   }
   client.loop(); 
 
-  // Publikovani vlhkosti
   String moistureStr = String(moisture);
   client.publish(mqtt_topic_moisture, moistureStr.c_str());
 }
@@ -151,7 +147,8 @@ void sendMinMoisture()
   client.publish(mqtt_topic_min_moisture, minMoistureStr.c_str());
 }
 
-void sendMaxMoisture() {
+void sendMaxMoisture() 
+{
   if (!client.connected())
     reconnect();
 
@@ -161,7 +158,8 @@ void sendMaxMoisture() {
   client.publish(mqtt_topic_max_moisture, maxMoistureStr.c_str());
 }
 
-void sendNightMode() {
+void sendNightMode() 
+{
   if (!client.connected())
     reconnect();
 
@@ -171,7 +169,8 @@ void sendNightMode() {
   client.publish(mqtt_topic_night_mode, nightModeStr.c_str());
 }
 
-void sendDeviceActive() {
+void sendDeviceActive() 
+{
   if (!client.connected())
     reconnect();
 
@@ -181,30 +180,27 @@ void sendDeviceActive() {
   client.publish(mqtt_topic_device_active, deviceActiveStr.c_str());
 }
 
-
 void initializeSystem() 
 {
   // Inicializace displeje
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) 
   {
     while (true)
-      ; // Zastavi program
+      ; // Zastavení programu
   }
 
   client.setServer(mqttServer, 1883);
   client.setCallback(callback);
 
-  // Otevreni preferences
+  // Otevření preferences
   preferences.begin("moistureSett", false);
 
   minMoisture = preferences.getInt("minMoisture", 20);
   maxMoisture = preferences.getInt("maxMoisture", 60);
   deviceActive = preferences.getBool("deviceActive", false);
   moisture = preferences.getInt("moisture", 0);
-  previousEMA = preferences.getFloat("previousEMA", 0.0); // Načtení EMA nebo výchozí 0
+  previousEMA = preferences.getFloat("previousEMA", 0.0);
 
-
-// CHECK
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) 
   {
     timedWakeup = true;
@@ -220,24 +216,28 @@ void initializeSystem()
     timedWakeup = false;
     touchWakeup = false;
   }
-// CHECK
 
-  // Pripojeni k Wi-Fi
+  // Připojení k Wi-Fi
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) 
+  for (int i = 0; i < 5; i++) 
   {
+    if (WiFi.status() == WL_CONNECTED) 
+    {
+      break;
+    }
     delay(500);
   }
 
-  // Nastaveni NTP serveru
+  // Nastavení NTP serveru
   configTime(3600, 3600, "pool.ntp.org");
 
-  // Inicializace pinu
+  // Inicializace pinů
   pinMode(SOIL_SENSOR_PIN, INPUT);
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(PUMP_PIN2, OUTPUT);
   pinMode(TOUCH_PIN, INPUT);
 
+  // Přiřazení přerušení pro tlačítko
   attachInterrupt(digitalPinToInterrupt(TOUCH_PIN), touchInterrupt, RISING);
 
   display.clearDisplay();
@@ -256,7 +256,7 @@ String getCurrentTime()
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) 
   {
-    return "N/A"; // Pokud se nepodaří získat čas, vrátíme "N/A"
+    return "N/A"; // Pokud se nepodaří získat čas
   }
   char timeString[20];
   strftime(timeString, sizeof(timeString), "%H:%M:%S", &timeinfo); // Formátování času
@@ -278,13 +278,12 @@ void enterSleepMode()
   esp_deep_sleep_start();
 }
 
-
 // Funkce pro čtení hodnoty vlhkosti půdy
 void updateMoisture() 
 {
   int sensorValue = analogRead(SOIL_SENSOR_PIN);
   
-  // Převedení analogové hodnoty na procenta
+  // Kalibrace senzoru vlhkosti
   float moistureRaw = map(sensorValue, 2647, 976, 0, 100); 
 
   // Výpočet exponenciálního klouzavého průměru
@@ -313,8 +312,8 @@ void watering_cycle()
   // Pokud je watering true, spustí se logika zavlažování
   if (watering) 
   {
-    // Zkontrolujeme, zda má čerpadlo běžet (běží na 20 sekund)
-    if (!pumpRunning && currentMillis - lastWateringTime >= 6000)  // 10 minut čekání
+    // Spuštění čerpadla každých 5 minut
+    if (!pumpRunning && currentMillis - lastWateringTime >= 5 * 60 * 1000)
     {
       pumpRunning = true;
       lastPumpRunTime = currentMillis;
@@ -322,17 +321,17 @@ void watering_cycle()
       digitalWrite(PUMP_PIN2, LOW);
     }
 
-    // Pokud čerpadlo běželo 20 sekund, vypneme ho
-    if (pumpRunning && currentMillis - lastPumpRunTime >= 2000)  // 20 sekund běhu čerpadla
+    // Vypnutí čerpadla po 30 sekundách
+    if (pumpRunning && currentMillis - lastPumpRunTime >= 30 * 1000)
     {
       pumpRunning = false;
       digitalWrite(PUMP_PIN, LOW);
       digitalWrite(PUMP_PIN2, LOW);
-      lastWateringTime = currentMillis;  // Resetujeme čas čekání
+      lastWateringTime = currentMillis;
     }
 
-    // Zkontrolujeme vlhkost během čekání a vypneme zavlažování, pokud je vlhkost dostatečná
-    if (moisture >= (maxMoisture - 5))  // Pokud je vlhkost blízko maximální hodnotě
+    // Kontrola vlhkosti a případné zastavení zavlažování
+    if (moisture >= (maxMoisture - 3))
     {
       watering = false;
       pumpRunning = false;
@@ -349,8 +348,8 @@ void toggleDeviceMode()
 
   String message = deviceActive ? "ACTIVE" : "INACTIVE";
   
-  uint16_t textWidth = message.length() * 12; // Přibližná šířka písma 6x2
-  uint16_t textHeight = 16; // Výška písma při velikosti 2
+  uint16_t textWidth = message.length() * 12; // Šířka písmen 6x2
+  uint16_t textHeight = 16; // Výška písmen při velikosti 2
 
   // Výpočet pozice pro vycentrování textu
   int16_t x = (SCREEN_WIDTH - textWidth) / 2;
@@ -369,10 +368,10 @@ void toggleDeviceMode()
   digitalWrite(PUMP_PIN2, LOW);
 
   sendDeviceActive();
-  delay(2000);
+  delay(1500);
 }
 
-// Funkce pro kontrolu nočního režimu
+// Funkce pro kontrolu nočního (klidového) režimu
 void checkNightMode() 
 {
   bool lastState = nightMode;
@@ -427,13 +426,13 @@ void drawWateringIcon()
 {
   if (watering) 
   {
-    int centerX = SCREEN_WIDTH / 2;   // Střed displeje na ose X
+    int centerX = SCREEN_WIDTH / 2; // Střed displeje na ose X
     int centerY = SCREEN_HEIGHT - 8; // Dolní část displeje
 
     // Vymazání prostoru pro ikonu
     display.fillRect(centerX - 14, centerY - 6, 28, 12, SSD1306_BLACK);
 
-    // Kapka vody
+    // Vykreslení ikony kapky
     display.fillTriangle(centerX, centerY - 7, centerX - 4, centerY + 1, centerX + 4, centerY + 1, SSD1306_WHITE); // Tělo kapky
     display.fillCircle(centerX, SCREEN_HEIGHT - 6, 4, SSD1306_WHITE); // Horní část kapky
     }
@@ -445,29 +444,17 @@ void displaySignalStrength()
   int32_t rssi = WiFi.RSSI();
   int bars = 0;
   if (rssi > -50) 
-  {
     bars = 5;
-  } 
   else if (rssi > -60) 
-  {
     bars = 4;
-  } 
   else if (rssi > -70) 
-  {
     bars = 3;
-  } 
   else if (rssi > -80) 
-  {
     bars = 2;
-  } 
   else if (rssi > -90) 
-  {
     bars = 1;
-  } 
   else 
-  {
     bars = 0;
-  }
 
   int barWidth = 3;
   int barSpacing = 1;
@@ -525,7 +512,7 @@ void updateDisplay()
   display.display();
 }
 
-// Funkce pro zpracovani poctu kliknuti
+// Funkce pro zpracování počtů kliknutí
 void processTouchClicks() 
 {
   if (clickCount == 1 && millis() > singleClickTimeout) 
@@ -579,7 +566,7 @@ void setMinimumMoisture()
     display.drawRect(0, 50, SCREEN_WIDTH, 5, SSD1306_WHITE);
     display.fillRect(0, 50, sliderPosition, 5, SSD1306_WHITE);
 
-    // Indikator aktualni hodnoty
+    // Indikátor aktualní hodnoty
     int indicatorWidth = 6;
     int indicatorHeight = 13;
     int indicatorX = sliderPosition - (indicatorWidth / 2);
@@ -625,7 +612,7 @@ void setMaximumMoisture()
     display.drawRect(0, 50, SCREEN_WIDTH, 5, SSD1306_WHITE);
     display.fillRect(0, 50, sliderPosition, 5, SSD1306_WHITE);
 
-    // Indikator aktualni hodnoty
+    // Indikátor aktualní hodnoty
     int indicatorWidth = 6;
     int indicatorHeight = 13;
     int indicatorX = sliderPosition - (indicatorWidth / 2);
@@ -657,7 +644,7 @@ void loop()
   if (!client.connected()) {
     reconnect();
   }
-  client.loop();  // Zpracování zpráv
+  client.loop(); // Zpracování zpráv
 
   updateMoisture();
   
@@ -678,9 +665,12 @@ void loop()
 
     if (watering) 
     {
-      watering_cycle();
+      if (!nightMode)
+        watering_cycle();
+      else
+        enterSleepMode();
     }
-    if (!timedWakeup) // Automaticke probuzeni - nevykresit displej
+    if (!timedWakeup) // Automatické probuzení - nevykresit displej
       updateDisplay();
   }
   else if (!settingMin && !settingMax)
@@ -691,10 +681,11 @@ void loop()
   
   checkNightMode();
 
-  delay(10);
+  // Přechod do režimu spánku při splnění podmínek
+  if (watering == false && (millis() - lastTouchTime) > 3 * 60 *1000) // 3 minuty
+    enterSleepMode();
+  else if (watering == false && timedWakeup && (millis() - lastWakeup) > 30 * 1000) // 30 sekund na aktualizaci vlhkosti
+    enterSleepMode();
 
-  // if (watering == false && (millis() - lastTouchTime) > 1000 * 180) // 3 minuty
-  //   enterSleepMode();
-  // else if (watering == false && timedWakeup && (millis() - lastWakeup) > 1000 * 30) // 30 sekund na aktualizaci vlhkosti
-  //   enterSleepMode();
+  delay(100);
 }
