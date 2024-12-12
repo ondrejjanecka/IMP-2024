@@ -333,6 +333,10 @@ void watering_cycle()
     // Kontrola vlhkosti a případné zastavení zavlažování
     if (moisture >= (maxMoisture - 3))
     {
+      digitalWrite(PUMP_PIN, LOW);
+      digitalWrite(PUMP_PIN2, LOW);
+      lastWateringTime = currentMillis;
+
       watering = false;
       pumpRunning = false;
     }
