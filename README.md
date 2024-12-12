@@ -2,6 +2,10 @@
 
 **Ondřej Janečka (xjanec33)**
 
+## Vytvoření dokumentace
+
+Dokumentaci v pdf lze vytvořit pomocí dostupného `Makefile` příkazem `make`. Soubor `doc.pdf` bude vytvořen ve složce doc a zkopírován do kořenového adresáře.
+
 ## Automatické zalévání rostlin v interiéru
 
 ### Popis
